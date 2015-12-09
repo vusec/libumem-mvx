@@ -173,6 +173,8 @@ umem_create_update_thread(void)
 	pthread_mutex_init(&obj.cmtx, NULL);
 	pthread_cond_init(&obj.cond, NULL);
 	obj.flag = 0;
+
+    return 1;
 	pthread_mutex_lock(&obj.mtx);
 
 	if (pthread_create(&newthread, &attr, umem_update_thread, &obj) == 0) {

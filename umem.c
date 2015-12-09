@@ -1197,7 +1197,7 @@ umem_log_enter(umem_log_header_t *lhp, void *data, size_t size)
 #define UMEM_AUDIT(lp, cp, bcp)                                         \
 {                                                                       \
         umem_bufctl_audit_t *_bcp = (umem_bufctl_audit_t *)(bcp);       \
-        _bcp->bc_timestamp = gethrtime();                               \
+        _bcp->bc_timestamp = 0; /*gethrtime();*/                               \
         _bcp->bc_thread = thr_self();                                   \
         _bcp->bc_depth = getpcstack(_bcp->bc_stack, umem_stack_depth,   \
             (cp != NULL) && (cp->cache_flags & UMF_CHECKSIGNAL));       \
@@ -2422,8 +2422,10 @@ umem_st_update(void)
 
         umem_process_updates(); /* does all of the requested work */
 
+        /*
         umem_reap_next = gethrtime() +
             (hrtime_t)umem_reap_interval * NANOSEC;
+            */
 
         umem_reaping = UMEM_REAP_DONE;
 
@@ -2444,13 +2446,13 @@ umem_reap(void)
         extern int __nthreads(void);
 #endif
 
-        if (umem_ready != UMEM_READY || umem_reaping != UMEM_REAP_DONE ||
-            gethrtime() < umem_reap_next)
+        if (umem_ready != UMEM_READY || umem_reaping != UMEM_REAP_DONE) // ||
+            //gethrtime() < umem_reap_next)
                 return;
 
         (void) mutex_lock(&umem_update_lock);
 
-        if (umem_reaping != UMEM_REAP_DONE || gethrtime() < umem_reap_next) {
+        if (umem_reaping != UMEM_REAP_DONE) { // || gethrtime() < umem_reap_next) {
                 (void) mutex_unlock(&umem_update_lock);
                 return;
         }
@@ -2568,8 +2570,10 @@ umem_cache_create(
 
         (void) mutex_lock(&umem_flags_lock);
         if (umem_flags & UMF_RANDOMIZE)
+        {
                 umem_flags = (((umem_flags | ~UMF_RANDOM) + 1) & UMF_RANDOM) |
                     UMF_RANDOMIZE;
+        }
         cp->cache_flags = umem_flags | (cflags & UMF_DEBUG);
         (void) mutex_unlock(&umem_flags_lock);
 
@@ -3312,10 +3316,10 @@ umem_init(void)
         /*
          * Set up updating and reaping
          */
-        umem_reap_next = gethrtime() + NANOSEC;
+        //umem_reap_next = gethrtime() + NANOSEC;
 
 #ifndef UMEM_STANDALONE
-        (void) gettimeofday(&umem_update_next, NULL);
+        //(void) gettimeofday(&umem_update_next, NULL);
 #endif
 
         /*
