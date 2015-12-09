@@ -27,12 +27,15 @@
 
 #pragma ident	"@(#)malloc.c	1.5	05/06/08 SMI"
 
+#define _GNU_SOURCE
 #include "config.h"
 #include <unistd.h>
 
 #include <errno.h>
 
 #include <string.h>
+#include <dlfcn.h>
+#include <sys/syscall.h>
 
 #ifdef HAVE_SYS_SYSMACROS_H
 #include <sys/sysmacros.h>
@@ -59,6 +62,55 @@ typedef struct malloc_data {
 	uint32_t malloc_stat; /* = UMEM_MALLOC_ENCODE(state, malloc_size) */
 } malloc_data_t;
 
+int in_libumem_level = 0;
+
+#if 1
+//#define LIBUMEM_ENTER(where) syscall(402, where)
+#define LIBUMEM_ENTER(where) in_libumem_level++
+//#define LIBUMEM_EXIT(where) syscall(403, where)
+#define LIBUMEM_EXIT(where) in_libumem_level--
+#define LIBUMEM_ENTERED_REG() syscall(401, &in_libumem_level)
+#define LOADER_DONE() syscall(400)
+#else
+#define LIBUMEM_ENTER(where)
+#define LIBUMEM_EXIT(where)
+#define LIBUMEM_ENTERED_REG()
+#define LOADER_DONE()
+#endif
+
+
+typedef int (*main_t)(int, char **, char **);
+typedef int (*libc_start_main_t)(main_t main, int argc, char **ubp_av,
+        void (*init)(void), void (*fini)(void), void (*rtld_fini)(void),
+        void (*stack_end));
+main_t main_orig;
+int main_override(int argc, char **argv, char **envp)
+{
+    LOADER_DONE();
+    return main_orig(argc, argv, envp);
+}
+int __libc_start_main( main_t main, int argc, char **ubp_av, void (*init)(void),
+        void (*fini)(void), void (*rtld_fini)(void), void *stack_end)
+{
+
+    libc_start_main_t orig_libc_start_main;
+
+    main_orig = main;
+
+    orig_libc_start_main =
+        (libc_start_main_t)dlsym(RTLD_NEXT, "__libc_start_main");
+    (*orig_libc_start_main)(&main_override, argc, ubp_av, init, fini, rtld_fini,
+            stack_end);
+
+    exit(EXIT_FAILURE); /* This is never reached. */
+}
+
+/* Since we override libgetpid */
+pid_t getpid(void)
+{
+    return syscall(SYS_getpid);
+}
+
 void *
 malloc(size_t size_arg)
 {
@@ -66,6 +118,16 @@ malloc(size_t size_arg)
 	uint32_t high_size = 0;
 #endif
 	size_t size;
+    static int hasinit = 0;
+    LIBUMEM_ENTER(1);
+
+    if (!hasinit)
+    {
+        LIBUMEM_ENTERED_REG();
+        hasinit = 1;
+    }
+
+    //log_message("--------------------start %zu\n", size_arg);
 
 	malloc_data_t *ret;
 	size = size_arg + sizeof (malloc_data_t);
@@ -78,6 +140,7 @@ malloc(size_t size_arg)
 #endif
 	if (size < size_arg) {
 		errno = ENOMEM;			/* overflow */
+        LIBUMEM_EXIT(1);
 		return (NULL);
 	}
 	ret = (malloc_data_t *)_umem_alloc(size, UMEM_DEFAULT);
@@ -86,6 +149,7 @@ malloc(size_t size_arg)
 			errno = EAGAIN;
 		else
 			errno = ENOMEM;
+        LIBUMEM_EXIT(1);
 		return (NULL);
 #ifdef _LP64
 	} else if (high_size > 0) {
@@ -118,6 +182,8 @@ malloc(size_t size_arg)
 		ret->malloc_stat = UMEM_MALLOC_ENCODE(MALLOC_MAGIC, size);
 		ret++;
 	}
+    //log_message("--------------------end %zu\n", size_arg);
+    LIBUMEM_EXIT(1);
 	return ((void *)ret);
 }
 
@@ -163,6 +229,7 @@ memalign(size_t align, size_t size_arg)
 		return (NULL);
 	}
 
+
 	/*
 	 * if malloc provides the required alignment, use it.
 	 */
@@ -181,13 +248,16 @@ memalign(size_t align, size_t size_arg)
 	size = size_arg + overhead;
 	phase = align - overhead;
 
+    LIBUMEM_ENTER(2);
 	if (umem_memalign_arena == NULL && umem_init() == 0) {
 		errno = ENOMEM;
+        LIBUMEM_EXIT(2);
 		return (NULL);
 	}
 
 	if (size < size_arg) {
 		errno = ENOMEM;			/* overflow */
+        LIBUMEM_EXIT(2);
 		return (NULL);
 	}
 
@@ -200,6 +270,7 @@ memalign(size_t align, size_t size_arg)
 		else
 			errno = ENOMEM;
 
+        LIBUMEM_EXIT(2);
 		return (NULL);
 	}
 
@@ -224,6 +295,7 @@ memalign(size_t align, size_t size_arg)
 	ASSERT(P2PHASE((uintptr_t)ret, align) == 0);
 	ASSERT((void *)((uintptr_t)ret - overhead) == buf);
 
+    LIBUMEM_EXIT(2);
 	return ((void *)ret);
 }
 
@@ -369,21 +441,25 @@ process_free(void *buf_arg,
 	return (0);
 
 process_malloc:
+    LIBUMEM_ENTER(3);
 	if (do_free)
 		_umem_free(base, size);
 	else
 		*data_size_arg = data_size;
 
 	errno = old_errno;
+    LIBUMEM_EXIT(3);
 	return (1);
 
 process_memalign:
+    LIBUMEM_ENTER(3);
 	if (do_free)
 		vmem_xfree(umem_memalign_arena, base, size);
 	else
 		*data_size_arg = data_size;
 
 	errno = old_errno;
+    LIBUMEM_EXIT(3);
 	return (1);
 }
 
