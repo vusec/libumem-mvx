@@ -101,6 +101,9 @@ extern size_t umem_minfirewall;
 
 extern uint32_t umem_flags;
 
+extern uint32_t umem_slabmax;
+extern size_t umem_slabpad;
+
 /*
  * umem.c: Internal aliases (to avoid PLTs)
  */

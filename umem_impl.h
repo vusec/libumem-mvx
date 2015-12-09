@@ -79,6 +79,8 @@ extern "C" {
 #define	UMF_HASH	0x00000200	/* cache has hash table */
 #define	UMF_RANDOMIZE	0x00000400	/* randomize other umem_flags */
 
+#define	UMF_SLABMAX	0x00000800	/* set max on number of objects per slab */
+
 #define	UMF_BUFTAG	(UMF_DEADBEEF | UMF_REDZONE)
 #define	UMF_TOUCH	(UMF_BUFTAG | UMF_LITE | UMF_CONTENTS)
 #define	UMF_RANDOM	(UMF_TOUCH | UMF_AUDIT | UMF_NOMAGAZINE)

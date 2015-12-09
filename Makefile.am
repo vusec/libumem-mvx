@@ -35,6 +35,7 @@ libumem_la_SOURCES =	init_lib.c \
 			sys/vmem.h \
 			sys/vmem_impl_user.h
 
+libumem_malloc_la_CFLAGS = -fno-builtin-malloc
 libumem_malloc_la_SOURCES = malloc.c
 libumem_malloc_la_LDFLAGS = -lpthread -R$(libdir) -lumem 
 

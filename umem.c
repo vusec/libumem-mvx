@@ -524,6 +524,8 @@ size_t umem_lite_minsize = 0;   /* minimum buffer size for UMF_LITE */
 size_t umem_lite_maxalign = 1024; /* maximum buffer alignment for UMF_LITE */
 size_t umem_maxverify;          /* maximum bytes to inspect in debug routines */
 size_t umem_minfirewall;        /* hardware-enforced redzone threshold */
+uint32_t umem_slabmax;          /* usable chunks = min(slabmax, actualchunks) */
+size_t umem_slabpad = 0;        /* bytes to add after every slab */
 
 uint_t umem_flags = 0;
 
@@ -1237,7 +1239,7 @@ umem_slab_create(umem_cache_t *cp, int umflag)
                 color = cp->cache_mincolor;
         cp->cache_color = color;
 
-        slab = vmem_alloc(vmp, slabsize, UMEM_VMFLAGS(umflag));
+        slab = vmem_alloc(vmp, slabsize + umem_slabpad, UMEM_VMFLAGS(umflag));
 
         if (slab == NULL)
                 goto vmem_alloc_failure;
@@ -1256,6 +1258,10 @@ umem_slab_create(umem_cache_t *cp, int umflag)
                 sp = UMEM_SLAB(cp, slab);
                 chunks = (slabsize - sizeof (umem_slab_t) - color) / chunksize;
         }
+        if (umem_flags & UMF_SLABMAX)
+            if (chunks > umem_slabmax)
+                chunks = umem_slabmax;
+        //log_message("slab_create(d) %zu * %zu = %zu   %u\n", chunks, chunksize, slabsize, umem_slabmax);
 
         sp->slab_cache  = cp;
         sp->slab_head   = NULL;
@@ -1309,7 +1315,7 @@ bufctl_alloc_failure:
 
 slab_alloc_failure:
 
-        vmem_free(vmp, slab, slabsize);
+        vmem_free(vmp, slab, slabsize + umem_slabpad);
 
 vmem_alloc_failure:
 
@@ -1336,7 +1342,7 @@ umem_slab_destroy(umem_cache_t *cp, umem_slab_t *sp)
                 }
                 _umem_cache_free(umem_slab_cache, sp);
         }
-        vmem_free(vmp, slab, cp->cache_slabsize);
+        vmem_free(vmp, slab, cp->cache_slabsize + umem_slabpad);
 }
 
 /*

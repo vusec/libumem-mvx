@@ -250,6 +250,14 @@ static umem_env_item_t umem_debug_items[] = {
 		"Enables writing all logged messages to stderr",
 		&umem_output,	2
 	},
+	{ "slabmax",		"Private",	ITEM_UINT,
+		"=max, Limit usable chunks per slab",
+		&umem_flags, UMF_SLABMAX, &umem_slabmax
+	},
+	{ "slabpad",		"Private",	ITEM_SIZE,
+		"=bytes, Pad every slab with n bytes",
+		NULL, 0, NULL, &umem_slabpad
+	},
 
 	{ NULL, "-- end of UMEM_DEBUG --",	ITEM_INVALID }
 };
