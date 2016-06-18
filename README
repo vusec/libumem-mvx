@@ -1,4 +1,11 @@
-Portable libumem.
+libumem-mvx
+===========
+
+Fork of libumem (https://github.com/gburd/libumem) to support a more sparse
+layout, used by MvArmor.
+
+
+Portable libumem
 ================
 
 This is a port of Solaris libumem to non-Solaris systems.
@@ -17,7 +24,7 @@ Linux and Windows versions of our product as we have found it to be stable.
 We will continue to update this project as and when we make improvements, and
 welcome third-party patches that improve the usability for everyone.
 
- 
+
 Wez Furlong,
 Message Systems, Inc.
 wez (at) messagesystems (dot) com
